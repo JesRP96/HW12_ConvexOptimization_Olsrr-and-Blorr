@@ -1,0 +1,1868 @@
+---
+title: "Convex Optimization - Regression"
+output:
+  html_document:
+    toc: yes
+    df_print: paged
+  github_document:
+    toc: yes
+    dev: jpeg
+  pdf_document:
+    toc: yes
+  html_notebook:
+    toc: yes
+    toc_float: yes
+    theme: cosmo
+    highlight: tango
+subtitle: Análisis basado en árboles
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo= TRUE, fig.height = 6, fig.width = 7)
+```
+
+# Problem 1: WarmUp
+
+After reading Chapters 3 and 4, solve the following exercises in a step-by-step fashion:
+
+1.  (Section 3.7) 3.8, 3.9, and 4.10.
+
+2.  (Section 4.7) 4.10 and 4.11.
+
+### Exercise 3.7.8
+
+This question involves the use of simple linear regression on the Auto data set.
+
+```{r}
+library(ISLR2)
+library(dplyr)
+```
+
+**(a) Use the lm() function to perform a simple linear regression with mpg as the response and horsepower as the predictor. Use the summary() function to print the results. Comment on the output.**
+
+```{r}
+attach(Auto)
+lm.fit <- lm(mpg ~ horsepower)
+
+summary(lm.fit)
+```
+
+**For example:**
+
+**- i. Is there a relationship between the predictor and the response**
+
+**- ii. How strong is the relationship between the predictor and the response?**
+
+**- iii. Is the relationship between the predictor and the response positive or negative?**
+
+**- iv. What is the predicted mpg associated with a horsepower of 98? What are the associated 95 % confidence and prediction intervals?**
+
+We can infer that there is a **strong negative relationship** between the predictor and the response because we see a small *p*-value. The predicted mpg associated with a horsepower of 98 and the associated 95 % confidence and prediction intervals are:
+
+```{r}
+# 95 % Confidence Interval
+predict(lm.fit, data.frame(horsepower = (c(98))), interval = "confidence")
+# Predicted is 24.46708
+# Interval is (23.97308, 24.96108)
+```
+
+```{r}
+# 95 % Prediction Interval
+predict(lm.fit, data.frame(horsepower = (c(98))), interval = "prediction")
+# Predicted is 24.46708
+# Interval is (14.8094, 34.12476)
+```
+
+**(b) Plot the response and the predictor. Use the abline() function to display the least squares regression line.**
+
+```{r message=FALSE, warning=FALSE}
+plot(horsepower, mpg)
+abline(lm.fit)
+```
+
+**(c) Use the plot() function to produce diagnostic plots of the least squares regression fit. Comment on any problems you see with the fit.**
+
+```{r}
+par(mfrow = c(2,2))
+plot(lm.fit)
+```
+
+### Exercise 3.7.9
+
+This question involves the use of multiple linear regression on the Auto data set.
+
+**(a) Produce a scatterplot matrix which includes all of the variables in the data set.**
+
+```{r}
+plot(Auto)
+```
+
+**(b) Compute the matrix of correlations between the variables using the function cor(). You will need to exclude the name variable, cor() which is qualitative.**
+
+```{r}
+quantityAuto <- Auto %>% select(-name)
+cor(quantityAuto)
+```
+
+**(c) Use the lm() function to perform a multiple linear regression with mpg as the response and all other variables except name as the predictors. Use the summary() function to print the results.**
+
+```{r}
+lm.fit <- lm(mpg ~., data = quantityAuto)
+summary(lm.fit)
+```
+
+**Comment on the output. For instance:**
+
+**+ i. Is there a relationship between the predictors and the response?**
+
+**+ ii. Which predictors appear to have a statistically significant relationship to the response?**
+
+**+ iii. What does the coefficient for the year variable suggest?**
+
+There is a relationship between some of the predictors and the response. The predictors that appear to have a statistically significant relationship to the response are displacement, weight, year, and origin. The coefficient for the year variable suggests that for every change in mpg, year affects the regression by 0.75 with a *significant positive relationship*.
+
+**(d) Use the plot() function to produce diagnostic plots of the linear regression fit. Comment on any problems you see with the fit.**
+
+```{r}
+par(mfrow = c(2,2))
+plot(lm.fit)
+```
+
+**Do the residual plots suggest any unusually large outliers? Does the leverage plot identify any observations with unusually high leverage?**
+
+We can see that the residuals suggest unusually large outliers starting at x = 30 and beyond. We can also notice that there are some observations in the Residuals vs Leverage plot that falls outside the Cook's distance (red dashed line at the bottom), this indicates that they are influential points, high leverage.
+
+**(e) Use the \* and : symbols to fit linear regression models with interaction effects. Do any interactions appear to be statistically significant?**
+
+```{r}
+lm.fit2 <- lm(mpg~displacement*weight, data = quantityAuto)
+summary(lm.fit2)
+```
+
+```{r}
+lm.fit3 <- lm(mpg~displacement*year, data = quantityAuto)
+summary(lm.fit3)
+```
+
+```{r}
+lm.fit4 <- lm(mpg~year*origin, data = quantityAuto)
+summary(lm.fit4)
+```
+
+```{r}
+lm.fit5 <- lm(mpg~year*weight, data = quantityAuto)
+summary(lm.fit5)
+#displacement, weight, year, and origin
+```
+
+The interaction between year:origin seems to not be statistically significant.
+
+**(f) Try a few different transformations of the variables, such as log(X), √X, X2. Comment on your findings.**
+
+```{r}
+lm.fit <- lm(mpg~year + I(year^2))
+summary(lm.fit)
+```
+
+```{r}
+lm.fit <- lm(mpg~year + log(year))
+summary(lm.fit)
+```
+
+```{r}
+lm.fit <- lm(mpg~year + I(sqrt(year)))
+summary(lm.fit)
+```
+
+Using different transformations for the variable year, we noticed that the near-zero *p*-value associated with the quadratic term suggests that it leads to an improved model, the Std. Error is also lowered for year^2. This is not the case for the other transformations. The other transformations are still significant but the Std. Error is way higher while also the *p*-value is a little bit higher too, for theses cases the coefficient is only showing the relationship between the variables, the coefficients make sense since we are using a log function and also √year, hence why these values are negatives.
+
+### Exercise 4.10
+
+This question should be answered using the Carseats data set.
+
+**(a) Fit a multiple regression model to predict Sales using Price, Urban, and US.**
+
+```{r}
+lm.fit <- lm(Sales~Price+Urban+US, data = Carseats)
+summary(lm.fit)
+```
+
+**(b) Provide an interpretation of each coefficient in the model. Be careful—some of the variables in the model are qualitative!**
+
+Each coefficient indicates how it is affecting Sales. Price has a **negative high significant relationship** while the UrbanYes (which is a 1 because it is a qualitative variable) has no significant relationship with Sales, finally USYes (again qualitative) has a **positive significant relationship**.
+
+**(c) Write out the model in equation form, being careful to handle the qualitative variables properly.**
+
+Sales = 13.043469 -0.054459*Price - 0.021916*UrbanYes +1.200573\*USYes + error
+
+We do not include "No" for US or Urban as the dummy variable is zero, we would be multiplying by zero.
+
+**(d) For which of the predictors can you reject the null hypothesis H0 : βj = 0?**
+
+We can reject the null hypothesis for Price and USYes.
+
+**(e) On the basis of your response to the previous question, fit a smaller model that only uses the predictors for which there is evidence of association with the outcome.**
+
+```{r}
+lm.fit <- lm(Sales~Price+US, data = Carseats)
+summary(lm.fit)
+```
+
+**(f) How well do the models in (a) and (e) fit the data?** Model (a) has a non significant variable which is UrbanYes, comparing this model to model (e) which every variable is significant, model (e) has a lower R-squared compared to model (a). Model (e) also has lower Std. Error for some predictors while Multiple R-squared for both is the same. We would need to choose model (e) since this model has every single predictor rejecting the null hypothesis while model (a) has one predictor accepting H0.
+
+**(g) Using the model from (e), obtain 95 % confidence intervals for the coefficient(s).**
+
+```{r}
+# 95 % Confidence Interval
+predict(lm.fit, data.frame(Price = 150, US = "Yes"), interval = "confidence")
+# Predicted is 6.058791
+# Interval is (5.602926, 6.514655)
+```
+
+**(h) Is there evidence of outliers or high leverage observations in the model from (e)?**
+
+```{r}
+par(mfrow = c(2,2))
+plot(lm.fit)
+```
+
+There is evidence of high leverage observations, outliers seem to be present although not drastically away from the data.
+
+### Exercise 4.7.10
+
+This question should be answered using the Weekly data set, which is part of the ISLR2 package. This data is similar in nature to the Smarket data from this chapter's lab, except that it contains 1, 089 weekly returns for 21 years, from the beginning of 1990 to the end of 2010.
+
+```{r}
+#install.packages("ISLR")
+#install.packages("MASS")
+#install.packages("olsrr")
+library("ISLR")
+library("tidyverse")
+library("MASS")
+library ("e1071")
+library("class")
+library("rsample")
+library("olsrr")
+```
+
+**(a) Produce some numerical and graphical summaries of the Weekly data. Do there appear to be any patterns?**
+
+```{r}
+data("Weekly")
+weekly_db<-Weekly
+summary(weekly_db)
+```
+
+There´s not a clear difference in the predictors in terms of the objective variable.
+
+```{r}
+ggplot(data=weekly_db, aes(x=Lag1, group=Direction, fill=Direction)) +
+    geom_density(alpha=.4) 
+
+ggplot(data=weekly_db, aes(x=Lag2, group=Direction, fill=Direction)) +
+    geom_density(alpha=.4) 
+
+ggplot(data=weekly_db, aes(x=Lag3, group=Direction, fill=Direction)) +
+    geom_density(alpha=.4) 
+
+ggplot(data=weekly_db, aes(x=Lag4, group=Direction, fill=Direction)) +
+    geom_density(alpha=.4) 
+
+ggplot(data=weekly_db, aes(x=Lag5, group=Direction, fill=Direction)) +
+    geom_density(alpha=.4) 
+
+ggplot(data=weekly_db, aes(x=Volume, group=Direction, fill=Direction)) +
+    geom_density(alpha=.4) 
+```
+
+**(b) Use the full data set to perform a logistic regression with Direction as the response and the five lag variables plus Volume as predictors. Use the summary function to print the results. Do any of the predictors appear to be statistically significant? If so, which ones?**
+
+The predictor *Lag 2* is statistically significant with a 95% confidence interval and the intercept also is significant with a 99% confidence interval.
+
+```{r}
+glm.fits <- glm (Direction ~ Lag1 + Lag2 + Lag3 + Lag4 + Lag5 + Volume ,
+data=weekly_db , family = binomial)
+summary (glm.fits)
+```
+
+**(c) Compute the confusion matrix and overall fraction of correct predictions. Explain what the confusion matrix is telling you about the types of mistakes made by logistic regression.**
+
+```{r}
+glm_probs <- predict (glm.fits ,data=weekly_db)
+glm_pred <- rep (" Down ", 1089)
+glm_pred[glm_probs > .5] = "Up"
+
+```
+
+Confussion Matrix
+
+```{r}
+cm1<-table (glm_pred , weekly_db$Direction)
+cm1
+```
+
+Accuracy Total
+
+```{r}
+acc1<-(cm1[1]+cm1[4])/nrow(weekly_db)
+acc1
+```
+
+Accuracy *Up* (*Sensitivity*)
+
+```{r}
+acc_up1<-cm1[4]/(cm1[4]+cm1[3])
+acc_up1
+```
+
+Accuracy *Down* (*Specificity*)
+
+```{r}
+acc_dw1<-cm1[1]/(cm1[2]+cm1[1])
+acc_dw1
+```
+
+**(d) Now fit the logistic regression model using a training data period from 1990 to 2008, with Lag2 as the only predictor. Compute the confusion matrix and the overall fraction of correct predictions for the held out data (that is, the data from 2009 and 2010).**
+
+```{r}
+weekly_train<-weekly_db[which(weekly_db$Year<=2008),]
+weekly_test<-weekly_db[which(weekly_db$Year>=2009),] 
+weekly_dir_test<-weekly_test$Direction
+
+
+glm.fits2 <- glm (Direction ~ Lag2 , data=weekly_train , family = binomial)
+
+glm_probs2 <- predict (glm.fits2 , newdata=weekly_test, type = "response")
+glm_pred2 <- rep (" Down ", 104)
+glm_pred2[glm_probs2 > .5] = "Up"
+
+```
+
+Confussion Matrix
+
+```{r}
+cm2<-table (glm_pred2 , weekly_dir_test)
+cm2
+```
+
+Accuracy Total
+
+```{r}
+acc2<-(cm2[1]+cm2[4])/nrow(weekly_test)
+acc2
+```
+
+Accuracy *Up* (*Sensitivity*)
+
+```{r}
+acc_up2<-cm2[4]/(cm2[4]+cm2[3])
+acc_up2
+```
+
+Accuracy *Down* (*Specificity*)
+
+```{r}
+acc_dw2<-cm2[1]/(cm2[2]+cm2[1])
+acc_dw2
+```
+
+**(e) Repeat (d) using LDA.**
+
+```{r}
+lda.fit <- lda (Direction ~ Lag2 ,  data=weekly_train)
+lda_pred <- predict (lda.fit , weekly_test)
+
+```
+
+Confussion Matrix
+
+```{r}
+cm3<-table (lda_pred$class , weekly_dir_test)
+cm3
+```
+
+Accuracy Total
+
+```{r}
+acc3<-(cm3[1]+cm3[4])/nrow(weekly_test)
+acc3
+```
+
+Accuracy *Up* (*Sensitivity*)
+
+```{r}
+acc_up3<-cm3[4]/(cm3[4]+cm3[3])
+acc_up3
+```
+
+Accuracy *Down* (*Specificity*)
+
+```{r}
+acc_dw3<-cm3[1]/(cm3[2]+cm3[1])
+acc_dw3
+```
+
+**(f) Repeat (d) using QDA.**
+
+```{r}
+qda.fit <- qda (Direction ~ Lag2 ,  data=weekly_train)
+qda_pred <- predict (qda.fit , weekly_test)
+```
+
+Confussion Matrix
+
+```{r}
+cm4<-table (qda_pred$class , weekly_dir_test)
+cm4
+```
+
+Accuracy Total
+
+```{r}
+acc4<-(cm4[1]+cm4[4])/nrow(weekly_test)
+acc4
+```
+
+Accuracy *Up* (*Sensitivity*)
+
+```{r}
+acc_up4<-cm4[4]/(cm4[4]+cm4[3])
+acc_up4
+```
+
+Accuracy *Down* (*Specificity*)
+
+```{r}
+acc_dw4<-cm4[1]/(cm4[2]+cm4[1])
+acc_dw4
+```
+
+**(g) Repeat (d) using KNN with K = 1.**
+
+```{r}
+
+weekly_dir_train<-weekly_train$Direction
+weekly_train_x<- weekly_train[,2:8]
+weekly_test_x<- weekly_test[,2:8]
+
+set.seed (123)
+knn_pred <- knn(weekly_train_x, weekly_test_x, weekly_dir_train , k = 1)
+
+```
+
+Confussion Matrix
+
+```{r}
+cm5<-table (knn_pred , weekly_dir_test)
+cm5
+```
+
+Accuracy Total
+
+```{r}
+acc5<-(cm5[1]+cm5[4])/nrow(weekly_test)
+acc5
+```
+
+Accuracy *Up* (*Sensitivity*)
+
+```{r}
+acc_up5<-cm5[4]/(cm5[4]+cm5[3])
+acc_up5
+```
+
+Accuracy *Down* (*Specificity*)
+
+```{r}
+acc_dw5<-cm5[1]/(cm5[2]+cm5[1])
+acc_dw5
+```
+
+**(h) Repeat (d) using naive Bayes.**
+
+```{r}
+
+nb.fit <- naiveBayes (Direction ~ Lag2 ,  data=weekly_train)
+nb_pred <- predict (nb.fit , weekly_test)
+
+```
+
+Confussion Matrix
+
+```{r}
+cm6<-table (nb_pred , weekly_dir_test)
+cm6
+```
+
+Accuracy Total
+
+```{r}
+acc6<-(cm6[1]+cm6[4])/nrow(weekly_test)
+acc6
+```
+
+Accuracy *Up* (*Sensitivity*)
+
+```{r}
+acc_up6<-cm6[4]/(cm6[4]+cm6[3])
+acc_up6
+```
+
+Accuracy *Down* (*Specificity*)
+
+```{r}
+acc_dw6<-cm6[1]/(cm6[2]+cm6[1])
+acc_dw6
+```
+
+**(i) Which of these methods appears to provide the best results on this data?**
+
+The model that show the best performance is the **K-Nearest Neighbors**.
+
+```{r}
+
+model <- c("GLM", "LDA","QDA","KNN","NB")
+total_acc <- c(acc2,acc3,acc4,acc5,acc6)
+sensitivity <- c(acc_up2, acc_up3, acc_up4, acc_up5, acc_up6)
+specificity <- c(acc_dw2, acc_dw3, acc_dw4, acc_dw5, acc_dw6)
+
+results_weekly <- data.frame(model, total_acc,sensitivity,specificity)
+results_weekly
+
+```
+
+### Exercise 4.7.11
+
+In this problem, you will develop a model to predict whether a given car gets high or low gas mileage based on the Auto data set.
+
+**(a) Create a binary variable, mpg01, that contains a 1 if mpg contains a value above its median, and a 0 if mpg contains a value below its median. You can compute the median using the median() function. Note you may find it helpful to use the data.frame() function to create a single data set containing both mpg01 and the other Auto variables.**
+
+```{r}
+data(Auto)
+auto_db<- Auto
+summary(auto_db)
+```
+
+```{r}
+auto_db$mpg01<-0
+auto_db[which(auto_db$mpg>=median(auto_db$mpg)),10]<-1
+auto_db$mpg01<-as.factor(auto_db$mpg01)
+
+summary(auto_db)
+```
+
+**(b) Explore the data graphically in order to investigate the association between mpg01 and the other features. Which of the other features seem most likely to be useful in predicting mpg01? Scatterplots and boxplots may be useful tools to answer this question. Describe your findings.**
+
+In all the variables there is a clear difference in terms of the objective variable. The ones with the more visual difference are (*cylinders*, *displacement*, *horsepower*, *weight* and *origin*).
+
+```{r}
+ggplot(aes(y=cylinders,fill=mpg01), data=auto_db) + geom_boxplot()
+
+ggplot(aes(y=displacement,fill=mpg01), data=auto_db) + geom_boxplot()
+
+ggplot(aes(y=horsepower,fill=mpg01), data=auto_db) + geom_boxplot()
+
+ggplot(aes(y=weight,fill=mpg01), data=auto_db) + geom_boxplot()
+
+ggplot(aes(y=acceleration,fill=mpg01), data=auto_db) + geom_boxplot()
+
+ggplot(aes(y=year,fill=mpg01), data=auto_db) + geom_boxplot()
+
+ggplot(aes(y=origin,fill=mpg01), data=auto_db) + geom_boxplot()
+
+
+
+```
+
+**(c) Split the data into a training set and a test set.**
+
+```{r}
+set.seed(123) 
+split_auto<- initial_split(
+                data = auto_db,    # Datos
+                prop = 0.8,     # Proporcion conjunto entrenamiento
+                strata = mpg01  # Variable objetivo
+                )
+
+auto_train <- training(split_auto)
+auto_test <- testing(split_auto)
+auto_test_mpg01<-auto_test$mpg01
+```
+
+**(d) Perform LDA on the training data in order to predict mpg01 using the variables that seemed most associated with mpg01 in (b). What is the test error of the model obtained?**
+
+```{r}
+lda.fit_auto <- lda (mpg01 ~ cylinders + displacement + horsepower + weight + origin,   data=auto_train)
+lda_pred_auto <- predict (lda.fit_auto , auto_test)
+
+```
+
+Confussion Matrix
+
+```{r}
+cm1_auto<-table (lda_pred_auto$class , auto_test_mpg01)
+cm1_auto
+```
+
+Accuracy Total
+
+```{r}
+acc1_auto<-(cm3[1]+cm3[4])/nrow(auto_test)
+acc1_auto
+```
+
+Accuracy *1 - over median* (*Sensitivity*)
+
+```{r}
+acc1_1_auto<-cm1_auto[4]/(cm1_auto[4]+cm1_auto[3])
+acc1_1_auto
+```
+
+Accuracy *0 - under median* (*Specificity*)
+
+```{r}
+acc1_0_auto<-cm1_auto[1]/(cm1_auto[2]+cm1_auto[1])
+acc1_0_auto
+```
+
+**(e) Perform QDA on the training data in order to predict mpg01 using the variables that seemed most associated with mpg01 in (b). What is the test error of the model obtained?**
+
+```{r}
+qda.fit_auto <- qda (mpg01 ~ cylinders + displacement + horsepower + weight + origin,   data=auto_train)
+qda_pred <- predict (qda.fit_auto , auto_test)
+```
+
+Confussion Matrix
+
+```{r}
+cm2_auto<-table (qda_pred$class , auto_test_mpg01)
+cm2_auto
+```
+
+Accuracy Total
+
+```{r}
+acc2_auto<-(cm2_auto[1]+cm2_auto[4])/nrow(auto_test)
+acc2_auto
+```
+
+Accuracy *1 - over median* (*Sensitivity*)
+
+```{r}
+acc2_1_auto<-cm2_auto[4]/(cm2_auto[4]+cm2_auto[3])
+acc2_1_auto
+```
+
+Accuracy *0 - under median* (*Specificity*)
+
+```{r}
+acc2_0_auto<-cm2_auto[1]/(cm2_auto[2]+cm2_auto[1])
+acc2_0_auto
+```
+
+**(f) Perform logistic regression on the training data in order to predict mpg01 using the variables that seemed most associated with mpg01 in (b). What is the test error of the model obtained?**
+
+```{r}
+glm.fits_auto <- glm (mpg01 ~ cylinders + displacement + horsepower + weight + origin,   data=auto_train, family = binomial)
+glm_probs_auto <- predict (glm.fits_auto , newdata=auto_test, type = "response")
+glm_pred_auto <- rep (0, nrow(auto_test))
+glm_pred_auto[glm_probs_auto > .5] = 1
+```
+
+Confussion Matrix
+
+```{r}
+cm3_auto<-table (glm_pred_auto , auto_test_mpg01)
+cm3_auto
+```
+
+Accuracy Total
+
+```{r}
+acc3_auto<-(cm3_auto[1]+cm3_auto[4])/nrow(auto_test)
+acc3_auto
+```
+
+Accuracy *1 - over median* (*Sensitivity*)
+
+```{r}
+acc3_1_auto<-cm3_auto[4]/(cm3_auto[4]+cm3_auto[3])
+acc3_1_auto
+```
+
+Accuracy *0 - under median* (*Specificity*)
+
+```{r}
+acc3_0_auto<-cm3_auto[1]/(cm3_auto[2]+cm3_auto[1])
+acc3_0_auto
+```
+
+**(g) Perform naive Bayes on the training data in order to predict mpg01 using the variables that seemed most associated with mpg01 in (b). What is the test error of the model obtained**
+
+```{r}
+nb.fit_auto <- naiveBayes(mpg01 ~ cylinders + displacement + horsepower + weight + origin,   data=auto_train)
+nb_pred_auto <- predict (nb.fit_auto , auto_test)
+```
+
+Confussion Matrix
+
+```{r}
+cm4_auto<-table (nb_pred_auto , auto_test_mpg01)
+cm4_auto
+```
+
+Accuracy Total
+
+```{r}
+acc4_auto<-(cm4_auto[1]+cm4_auto[4])/nrow(auto_test)
+acc4_auto
+```
+
+Accuracy *1 - over median* (*Sensitivity*)
+
+```{r}
+acc4_1_auto<-cm4_auto[4]/(cm4_auto[4]+cm4_auto[3])
+acc4_1_auto
+```
+
+Accuracy *0 - over median* (*Specificity*)
+
+```{r}
+acc4_0_auto<-cm4_auto[1]/(cm4_auto[2]+cm4_auto[1])
+acc4_0_auto
+```
+
+**(h) Perform KNN on the training data, with several values of K, in order to predict mpg01. Use only the variables that seemed most associated with mpg01 in (b). What test errors do you obtain?**
+
+```{r}
+
+auto_train_mpg01<-auto_train$mpg01
+auto_train_x<- auto_train[,c(2,3,4,5,8)]
+auto_test_x<- auto_test[,c(2,3,4,5,8)]
+
+set.seed (123)
+knn_pred_auto <- knn(auto_train_x, auto_test_x, auto_train_mpg01 , k = 1)
+
+```
+
+Confussion Matrix
+
+```{r}
+cm5_auto<-table (knn_pred_auto , auto_test_mpg01)
+cm5_auto
+```
+
+Accuracy Total
+
+```{r}
+acc5_auto<-(cm5_auto[1]+cm5_auto[4])/nrow(auto_test)
+acc5_auto
+```
+
+Accuracy *1 - over median* (*Sensitivity*)
+
+```{r}
+acc5_1_auto<-cm5_auto[4]/(cm5_auto[4]+cm5_auto[3])
+acc5_1_auto
+```
+
+Accuracy *0 - over median* (*Specificity*)
+
+```{r}
+acc5_0_auto<-cm5_auto[1]/(cm5_auto[2]+cm5_auto[1])
+acc5_0_auto
+```
+
+# Problem 2: Application Problems
+
+Note that some details are missing for all the following examples, the problems lack a complete explanation, and the code may need adequate comments. In this form, you must present a proper mathematical formulation, a brief background of the problem (and its bibliographical references) and, a much better explanation.
+
+## 1. The *olsrr* Package
+
+```{r}
+# Install release version from CRAN
+# install.packages("olsrr")
+```
+
+#### Regression
+
+Ordinary least squares regression.
+
+```{r warning=FALSE}
+library(olsrr)
+ols_regress(mpg ~ disp + hp + wt + qsec, data = mtcars)
+```
+
+#### Stepwise Regression
+
+Build regression model from a set of candidate predictor variables by entering and removing predictors based on *p*-values, in a stepwise manner until there is no variable left to enter or remove any more.
+
+##### Variable Selection
+
+```{r warning=FALSE}
+model <- lm(y ~ ., data = surgical)
+ols_step_both_p(model)
+```
+
+#### Stepwise AIC Backward Regression
+
+Build regression model from a set of candidate predictor variables by removing predictors based on Akaike Information Criteria, in a stepwise manner until there is no variable left to remove any more.
+
+##### Variable Selection
+
+```{r warning=FALSE}
+model <- lm(y ~ ., data = surgical)
+k <- ols_step_backward_aic(model)
+k
+```
+
+#### Breusch Pagan Test
+
+Breusch Pagan test is used to test for herteroskedasticity (non-constant error variance). It tests whether the variance of the errors from a regression is dependent on the values of the independent variables. It is a χ2 test.
+
+Test for constant variance. It assumes that the error terms are normally distributed.
+
+```{r warning=FALSE}
+model <- lm(mpg ~ disp + hp + wt + drat, data = mtcars)
+ols_test_breusch_pagan(model)
+```
+
+#### Collinearity Diagnostics
+
+Variance inflation factor, tolerance, eigenvalues and condition indices. Collinearity implies two variables are near perfect linear combinations of one another. Multicollinearity involves more than two variables. In the presence of multicollinearity, regression estimates are unstable and have high standard errors.
+
+```{r warning=FALSE}
+model <- lm(mpg ~ disp + hp + wt + qsec, data = mtcars)
+ols_coll_diag(model)
+```
+
+### a) Introduction to *olsrr*
+
+-   Residual Diagnostics: Includes plots to examine residuals to validate OLS assumptions
+
+-   Variable selection: Different variable selection procedures such as all possible regression, best subset regression, stepwise regression, stepwise forward regression and stepwise backward regression
+
+-   Heteroskedasticity: Tests for heteroskedasticity include bartlett test, breusch pagan test, score test and f test
+
+-   Measures of influence: Includes 10 different plots to detect and identify influential observations
+
+-   Collinearity diagnostics: VIF, Tolerance and condition indices to detect collinearity and plots for assessing mode fit and contributions of variables
+
+#### Regression
+
+Ordinary least squares regression. In the presence of interaction terms in the model, the predictors are scaled and centered before computing the standardized betas, you can indicate the presence of interaction terms by setting iterm to TRUE.
+
+```{r warning=FALSE}
+ols_regress(mpg ~ disp + hp + wt + qsec, data = mtcars)
+```
+
+#### Residual vs Fitted Values Plot
+
+Plot to detect non-linearity, unequal error variances, and outliers. Scatter plot of residuals on the y axis and fitted values on the x axis to detect non-linearity, unequal error variances, and outliers.
+
+Characteristics of a well behaved residual vs fitted plot:
+
+-   The residuals spread randomly around the 0 line indicating that the relationship is linear.
+
+-   The residuals form an approximate horizontal band around the 0 line indicating homogeneity of error variance.
+
+-   No one residual is visibly away from the random pattern of the residuals indicating that there are no outliers.
+
+```{r}
+model <- lm(mpg ~ disp + hp + wt + qsec, data = mtcars)
+ols_plot_resid_fit(model)
+```
+
+#### DFBETAs Panel
+
+DFBETAs measure the difference in each parameter estimate with and without the influential observation. dfbetas_panel creates plots to detect influential observations using DFBETAs. There is a DFBETA for each data point i.e if there are n observations and k variables, there will be 𝑛∗𝑘DFBETAs. In general, large values of DFBETAS indicate observations that are influential in estimating a given parameter. Belsley, Kuh, and Welsch recommend 2 as a general cutoff value to indicate influential observations and 2/(√𝑛) as a size-adjusted cutoff.
+
+```{r message=FALSE, warning=FALSE}
+model <- lm(mpg ~ disp + hp + wt, data = mtcars)
+ols_plot_dfbetas(model)
+```
+
+#### Residual Fit Spread Plot
+
+Plot to detect non-linearity, influential observations and outliers. Consists of side-by-side quantile plots of the centered fit and the residuals. It shows how much variation in the data is explained by the fit and how much remains in the residuals. For inappropriate models, the spread of the residuals in such a plot is often greater than the spread of the centered fit.
+
+```{r}
+model <- lm(mpg ~ disp + hp + wt + qsec, data = mtcars)
+ols_plot_resid_fit_spread(model)
+```
+
+#### Breusch Pagan Test
+
+Breusch Pagan test is used to test for herteroskedasticity (non-constant error variance). It tests whether the variance of the errors from a regression is dependent on the values of the independent variables. It is a 𝜒2 test.
+
+-   Null Hypothesis: Equal/constant variances
+
+-   Alternative Hypothesis: Unequal/non-constant variances
+
+Computation
+
+-   Fit a regression model
+
+-   Regress the squared residuals from the above model on the independent variables
+
+-   Compute 𝑛𝑅2. It follows a chi square distribution with p -1 degrees of freedom, where p is the number of independent variables, n is the sample size and 𝑅2 is the coefficient of determination from the regression in step 2.
+
+```{r message=FALSE, warning=FALSE}
+model <- lm(mpg ~ disp + hp + wt + drat, data = mtcars)
+ols_test_breusch_pagan(model)
+```
+
+#### Collinearity Diagnostics
+
+Collinearity implies two variables are near perfect linear combinations of one another. Multicollinearity involves more than two variables. In the presence of multicollinearity, regression estimates are unstable and have high standard errors.
+
+```{r message=FALSE, warning=FALSE}
+model <- lm(mpg ~ disp + hp + wt + qsec, data = mtcars)
+ols_coll_diag(model)
+```
+
+#### Stepwise Regression
+
+Build regression model from a set of candidate predictor variables by entering and removing predictors based on p values, in a stepwise manner until there is no variable left to enter or remove any more.
+
+##### Variable Selection
+
+```{r}
+model <- lm(y ~ ., data = surgical)
+ols_step_both_p(model)
+```
+
+##### Plot
+
+```{r}
+model <- lm(y ~ ., data = surgical)
+k <- ols_step_both_p(model)
+plot(k)
+```
+
+#### Stepwise AIC Backward Regression
+
+Build regression model from a set of candidate predictor variables by removing predictors based on Akaike Information Criteria, in a stepwise manner until there is no variable left to remove any more.
+
+##### Variable Selection
+
+```{r}
+model <- lm(y ~ ., data = surgical)
+k <- ols_step_backward_aic(model)
+k
+```
+
+##### Plot
+
+```{r}
+model <- lm(y ~ ., data = surgical)
+k <- ols_step_backward_aic(model)
+plot(k)
+```
+
+### b) Variable Selection Methods
+
+#### All Possible Regression
+All subset regression tests all possible subsets of the set of potential independent variables. If there are K potential independent variables (besides the constant), then there are 2𝑘distinct subsets of them to be tested. For example, if you have 10 candidate independent variables, the number of subsets to be tested is 2^10, which is 1024, and if you have 20 candidate variables, the number is 2^20, which is more than one million.
+
+**ols_step_all_possible()**
+Fits all regressions involving one regressor, two regressors, three regressors, and so on. It tests all possible subsets of the set of potential independent variables.
+```{r}
+model <- lm(mpg ~ disp + hp + wt + qsec, data = mtcars)
+ols_step_all_possible(model)
+```
+
+The plot method shows the panel of fit criteria for all possible regression methods.
+```{r}
+model <- lm(mpg ~ disp + hp + wt + qsec, data = mtcars)
+k <- ols_step_all_possible(model)
+plot(k)
+```
+
+#### Best Subset Regression
+
+Select the subset of predictors that do the best at meeting some well-defined objective criterion, such as having the largest R2 value or the smallest MSE, Mallow’s Cp or AIC.
+```{r}
+model <- lm(mpg ~ disp + hp + wt + qsec, data = mtcars)
+ols_step_best_subset(model)
+```
+```{r}
+model <- lm(mpg ~ disp + hp + wt + qsec, data = mtcars)
+k <- ols_step_best_subset(model)
+plot(k)
+```
+
+#### Stepwise Forward Regression
+Build regression model from a set of candidate predictor variables by entering predictors based on p values, in a stepwise manner until there is no variable left to enter any more. The model should include all the candidate predictor variables. If details is set to TRUE, each step is displayed.
+
+##### Variable Selection
+Build regression model from a set of candidate predictor variables by entering predictors based on p values, in a stepwise manner until there is no variable left to enter any more.
+```{r}
+model <- lm(y ~ ., data = surgical)
+ols_step_forward_p(model)
+```
+
+##### Plot
+```{r}
+model <- lm(y ~ ., data = surgical)
+k <- ols_step_forward_p(model)
+plot(k)
+```
+
+##### Detailed Output
+```{r}
+model <- lm(y ~ ., data = surgical)
+ols_step_forward_p(model, details = TRUE)
+```
+
+#### Stepwise Backward Regression
+Build regression model from a set of candidate predictor variables by removing predictors based on p values, in a stepwise manner until there is no variable left to remove any more. The model should include all the candidate predictor variables. If details is set to TRUE, each step is displayed.
+
+##### Variable Selection
+```{r}
+model <- lm(y ~ ., data = surgical)
+ols_step_backward_p(model)
+```
+##### Plot
+```{r}
+model <- lm(y ~ ., data = surgical)
+k <- ols_step_backward_p(model)
+plot(k)
+```
+
+##### Detailed Output
+```{r}
+model <- lm(y ~ ., data = surgical)
+ols_step_backward_p(model, details = TRUE)
+```
+
+#### Stepwise Regression
+Build regression model from a set of candidate predictor variables by entering and removing predictors based on p values, in a stepwise manner until there is no variable left to enter or remove any more. The model should include all the candidate predictor variables. If details is set to TRUE, each step is displayed.
+
+##### Variable Selection
+```{r}
+model <- lm(y ~ ., data = surgical)
+ols_step_both_p(model)
+```
+##### Plot
+```{r}
+model <- lm(y ~ ., data = surgical)
+k <- ols_step_both_p(model)
+plot(k)
+```
+
+##### Detailed Output
+```{r}
+model <- lm(y ~ ., data = surgical)
+ols_step_both_p(model, details = TRUE)
+```
+
+#### Stepwise AIC Forward Regression
+Build regression model from a set of candidate predictor variables by entering predictors based on Akaike Information Criteria, in a stepwise manner until there is no variable left to enter any more. The model should include all the candidate predictor variables. If details is set to TRUE, each step is displayed.
+
+##### Variable Selection
+```{r}
+model <- lm(y ~ ., data = surgical)
+ols_step_forward_aic(model)
+```
+
+#### Plot
+```{r}
+model <- lm(y ~ ., data = surgical)
+k <- ols_step_forward_aic(model)
+plot(k)
+```
+
+##### Detailed Output
+```{r}
+model <- lm(y ~ ., data = surgical)
+ols_step_forward_aic(model, details = TRUE)
+```
+
+#### Stepwise AIC Backward Regression
+Build regression model from a set of candidate predictor variables by removing predictors based on Akaike Information Criteria, in a stepwise manner until there is no variable left to remove any more. The model should include all the candidate predictor variables. If details is set to TRUE, each step is displayed.
+
+##### Variable Selection
+```{r}
+model <- lm(y ~ ., data = surgical)
+k <- ols_step_backward_aic(model)
+k
+```
+
+##### Plot
+```{r}
+model <- lm(y ~ ., data = surgical)
+k <- ols_step_backward_aic(model)
+plot(k)
+```
+
+##### Detailed Output
+```{r}
+model <- lm(y ~ ., data = surgical)
+ols_step_backward_aic(model, details = TRUE)
+```
+
+#### Stepwise AIC Regression
+Build regression model from a set of candidate predictor variables by entering and removing predictors based on Akaike Information Criteria, in a stepwise manner until there is no variable left to enter or remove any more. The model should include all the candidate predictor variables. If details is set to TRUE, each step is displayed.
+
+##### Variable Selection
+```{r}
+model <- lm(y ~ ., data = surgical)
+ols_step_both_aic(model)
+```
+
+##### Plot
+```{r}
+model <- lm(y ~ ., data = surgical)
+k <- ols_step_both_aic(model)
+plot(k)
+```
+
+##### Detailed Output
+```{r}
+model <- lm(y ~ ., data = surgical)
+ols_step_both_aic(model, details = TRUE)
+```
+
+### c) Residual Diagnostics
+
+olsrr offers tools for detecting violation of standard regression assumptions. Here we take a look at residual diagnostics. The standard regression assumptions include the following about residuals/errors:
+
+-   The error has a normal distribution (normality assumption).
+
+-   The errors have mean zero.
+
+-   The errors have same but unknown variance (homoscedasticity assumption).
+
+-   The error are independent of each other (independent errors assumption).
+
+#### Residual QQ Plot
+
+This graph is used to detect a violation on normality assumption, the most closest the point (residuals) to the line, represent normality.
+
+```{r}
+model <- lm(mpg ~ disp + hp + wt + qsec, data = mtcars)
+ols_plot_resid_qq(model)
+```
+
+#### Residual Normality Test
+
+This test is used to detect a violation on normality assumption. It calculates 4 test (*Shapiro-Wilk, Kolmogorov-Smirnov, Cramer-von Mise, Anderson-Darling*).
+
+```{r}
+model <- lm(mpg ~ disp + hp + wt + qsec, data = mtcars)
+ols_test_normality(model)
+```
+
+Correlation between observed residuals and expected residuals under normality.
+
+```{r}
+model <- lm(mpg ~ disp + hp + wt + qsec, data = mtcars)
+ols_test_correlation(model)
+```
+
+#### Residual vs Fitted Values Plot
+
+It is a scatter plot of residuals on the y axis and fitted values on the x axis to detect non-linearity, unequal error variances, and outliers.
+
+Characteristics of a well behaved residual vs fitted plot:
+
+-   The residuals spread randomly around the 0 line indicating that the relationship is linear.
+
+-   The residuals form an approximate horizontal band around the 0 line indicating homogeneity of error variance.
+
+-   No one residual is visibly away from the random pattern of the residuals indicating that there are no outliers.
+
+```{r}
+model <- lm(mpg ~ disp + hp + wt + qsec, data = mtcars)
+ols_plot_resid_fit(model)
+```
+
+#### Residual Histogram
+
+Histogram of residuals for detecting violation of normality assumption.
+
+```{r}
+model <- lm(mpg ~ disp + hp + wt + qsec, data = mtcars)
+ols_plot_resid_hist(model)
+
+```
+
+### d) Heteroscedasticity
+
+#### Bartlett Test
+
+Librerias
+
+```{r}
+library(descriptr)
+library(olsrr)
+```
+
+Use grouping variable
+
+```{r}
+ols_test_bartlett(hsb, 'read', group_var = 'female')
+```
+
+Using variables
+
+```{r}
+ols_test_bartlett(hsb, 'read', 'write')
+```
+
+#### Breusch Pagan Test
+
+Use fitted values of the model
+
+```{r}
+model <- lm(mpg ~ disp + hp + wt + drat, data = mtcars)
+ols_test_breusch_pagan(model)
+```
+
+Use independent variables of the model
+
+```{r}
+model <- lm(mpg ~ disp + hp + wt + drat, data = mtcars)
+ols_test_breusch_pagan(model, rhs = TRUE)
+```
+
+Use independent variables of the model and perform multiple tests
+
+```{r}
+model <- lm(mpg ~ disp + hp + wt + drat, data = mtcars)
+ols_test_breusch_pagan(model, rhs = TRUE, multiple = TRUE)
+```
+
+Bonferroni p value Adjustment
+
+```{r}
+model <- lm(mpg ~ disp + hp + wt + drat, data = mtcars)
+ols_test_breusch_pagan(model, rhs = TRUE, multiple = TRUE, p.adj = 'bonferroni')
+```
+
+Sidak p value Adjustment
+
+```{r}
+model <- lm(mpg ~ disp + hp + wt + drat, data = mtcars)
+ols_test_breusch_pagan(model, rhs = TRUE, multiple = TRUE, p.adj = 'sidak')
+```
+
+Holm's p value Adjustment
+
+```{r}
+model <- lm(mpg ~ disp + hp + wt + drat, data = mtcars)
+ols_test_breusch_pagan(model, rhs = TRUE, multiple = TRUE, p.adj = 'holm')
+```
+
+#### Score Test
+
+Use fitted values of the model
+
+```{r}
+model <- lm(mpg ~ disp + hp + wt + qsec, data = mtcars)
+ols_test_score(model)
+```
+
+Use independent variables of the model
+
+```{r}
+model <- lm(mpg ~ disp + hp + wt + qsec, data = mtcars)
+ols_test_score(model, rhs = TRUE)
+```
+
+Specify variables
+
+```{r}
+model <- lm(mpg ~ disp + hp + wt + qsec, data = mtcars)
+ols_test_score(model, vars = c('disp', 'hp'))
+```
+
+#### F Test
+
+Use fitted values of the model
+
+```{r}
+model <- lm(mpg ~ disp + hp + wt + qsec, data = mtcars)
+ols_test_f(model)
+```
+
+Use independent variables of the model
+
+```{r}
+model <- lm(mpg ~ disp + hp + wt + qsec, data = mtcars)
+ols_test_f(model, rhs = TRUE)
+```
+
+Specify variables
+
+```{r}
+model <- lm(mpg ~ disp + hp + wt + qsec, data = mtcars)
+ols_test_f(model, vars = c('disp', 'hp'))
+```
+
+### e) Measures of Influence
+
+#### Cook's D Bar Plot
+
+It is used to identify influential data points. It depends on both the residual and leverage i.e it takes it account both the x value and y value of the observation.
+
+Steps to compute Cook's distance:
+
+-   delete observations one at a time.
+-   refit the regression model on remaining (n−1) observations
+-   examine how much all of the fitted values change when the ith observation is deleted.
+
+A data point having a large cook's d indicates that the data point strongly influences the fitted values.
+
+```{r}
+model <- lm(mpg ~ disp + hp + wt + qsec, data = mtcars)
+ols_plot_cooksd_bar(model)
+```
+
+#### Cook's D Chart
+
+Chart of Cook's distance to detect observations that strongly influence fitted values of the model.
+
+```{r}
+model <- lm(mpg ~ disp + hp + wt + qsec, data = mtcars)
+ols_plot_cooksd_chart(model)
+```
+
+#### DFBETAs Panel
+
+DFBETA measures the difference in each parameter estimate with and without the influential point. There is a DFBETA for each data point i.e if there are n observations and k variables, there will be *n∗k* DFBETAs. In general, large values of DFBETAS indicate observations that are influential in estimating a given parameter. Belsley, Kuh, and Welsch recommend 2 as a general cutoff value to indicate influential observations and *2/√n* as a size-adjusted cutoff.
+
+```{r}
+model <- lm(mpg ~ disp + hp + wt, data = mtcars)
+ols_plot_dfbetas(model)
+```
+
+#### DFFITS Plot
+
+Proposed by Welsch and Kuh (1977). It is the scaled difference between the *i^th* fitted value obtained from the full data and the *i^th* fitted value obtained by deleting the ith observation. DFFIT - difference in fits, is used to identify influential data points. It quantifies the number of standard deviations that the fitted value changes when the *i^th* data point is omitted.
+
+Steps to compute DFFITs:
+
+-   delete observations one at a time.
+-   refit the regression model on remaining observations
+-   examine how much all of the fitted values change when the ith observation is deleted.
+
+```{r}
+model <- lm(mpg ~ disp + hp + wt + qsec, data = mtcars)
+ols_plot_dffits(model)
+```
+
+#### Studentized Residual Plot
+
+Plot for detecting outliers. Studentized deleted residuals (or externally studentized residuals) is the deleted residual divided by its estimated standard deviation. Studentized residuals are going to be more effective for detecting outlying Y observations than standardized residuals. If an observation has an externally studentized residual that is larger than 3 (in absolute value) we can call it an outlier.
+
+```{r}
+model <- lm(mpg ~ disp + hp + wt + qsec, data = mtcars)
+ols_plot_resid_stud(model)
+```
+
+#### Standardized Residual Chart
+
+Chart for detecting outliers. Standardized residual (internally studentized) is the residual divided by estimated standard deviation.
+
+```{r}
+model <- lm(mpg ~ disp + hp + wt + qsec, data = mtcars)
+ols_plot_resid_stand(model)
+```
+
+#### Studentized Residuals vs Leverage Plot
+
+Graph for detecting influential observations.
+
+```{r}
+model <- lm(read ~ write + math + science, data = hsb)
+ols_plot_resid_lev(model)
+```
+
+#### Deleted Studentized Residual vs Fitted Values Plot
+
+Graph for detecting outliers.
+
+```{r}
+model <- lm(mpg ~ disp + hp + wt + qsec, data = mtcars)
+ols_plot_resid_stud_fit(model)
+```
+
+#### Hadi Plot
+
+Hadi's measure of influence based on the fact that influential observations can be present in either the response variable or in the predictors or both. The plot is used to detect influential observations based on Hadi's measure.
+
+```{r}
+model <- lm(mpg ~ disp + hp + wt + qsec, data = mtcars)
+ols_plot_hadi(model)
+```
+
+#### Potential Residual Plot
+
+Plot to aid in classifying unusual observations as high-leverage points, outliers, or a combination of both.
+
+```{r}
+model <- lm(mpg ~ disp + hp + wt + qsec, data = mtcars)
+ols_plot_resid_pot(model)
+```
+
+### f) Collinearity Diagnostics, Model Fit & Variable Contribution
+
+#### Collinearity Diagnostics
+
+Collinearity implies two variables are near perfect linear combinations of one another. Multicollinearity involves more than two variables. In the presence of multicollinearity, regression estimates are unstable and have high standard errors.
+
+#### VIF
+
+Variance inflation factors measure the inflation in the variances of the parameter estimates due to collinearities that exist among the predictors. It is a measure of how much the variance of the estimated regression coefficient βk is "inflated" by the existence of correlation among the predictor variables in the model. A VIF of 1 means that there is no correlation among the kth predictor and the remaining predictor variables, and hence the variance of βk is not inflated at all. The general rule of thumb is that VIFs exceeding 4 warrant further investigation, while VIFs exceeding 10 are signs of serious multicollinearity requiring correction.
+
+Steps to calculate VIF:
+
+Regress the *k^th* predictor on rest of the predictors in the model. Compute the *R^2 k*
+
+```{r}
+model <- lm(mpg ~ disp + hp + wt + qsec, data = mtcars)
+ols_vif_tol(model)
+```
+
+Condition Index
+
+Most multivariate statistical approaches involve decomposing a correlation matrix into linear combinations of variables. The linear combinations are chosen so that the first combination has the largest possible variance (subject to some restrictions we won't discuss), the second combination has the next largest variance, subject to being uncorrelated with the first, the third has the largest possible variance, subject to being uncorrelated with the first and second, and so forth. The variance of each of these linear combinations is called an eigenvalue. Collinearity is spotted by finding 2 or more variables that have large proportions of variance (.50 or more) that correspond to large condition indices. A rule of thumb is to label as large those condition indices in the range of 30 or larger.
+
+```{r}
+model <- lm(mpg ~ disp + hp + wt + qsec, data = mtcars)
+ols_eigen_cindex(model)
+```
+
+Collinearity Diagnostics
+
+```{r}
+model <- lm(mpg ~ disp + hp + wt + qsec, data = mtcars)
+ols_coll_diag(model)
+```
+
+#### Model Fit Assessment
+
+Residual Fit Spread Plot
+
+Plot to detect non-linearity, influential observations and outliers. Consists of side-by-side quantile plots of the centered fit and the residuals. It shows how much variation in the data is explained by the fit and how much remains in the residuals. For inappropriate models, the spread of the residuals in such a plot is often greater than the spread of the centered fit.
+
+```{r}
+model <- lm(mpg ~ disp + hp + wt + qsec, data = mtcars)
+ols_plot_resid_fit_spread(model)
+```
+
+Part & Partial Correlations
+
+**Correlations** Relative importance of independent variables in determining Y. How much each variable uniquely contributes to R2 over and above that which can be accounted for by the other predictors.
+
+**Zero Order** Pearson correlation coefficient between the dependent variable and the independent variables.
+
+**Part** Unique contribution of independent variables. How much R2 will decrease if that variable is removed from the model?
+
+**Partial** How much of the variance in Y, which is not estimated by the other independent variables in the model, is estimated by the specific variable?
+
+```{r}
+model <- lm(mpg ~ disp + hp + wt + qsec, data = mtcars)
+ols_correlations(model)
+```
+
+Observed vs Predicted Plot
+
+Plot of observed vs fitted values to assess the fit of the model. Ideally, all your points should be close to a regressed diagonal line. Draw such a diagonal line within your graph and check out where the points lie. If your model had a high R Square, all the points would be close to this diagonal line. The lower the R Square, the weaker the Goodness of fit of your model, the more foggy or dispersed your points are from this diagonal line.
+
+```{r}
+model <- lm(mpg ~ disp + hp + wt + qsec, data = mtcars)
+ols_plot_obs_fit(model)
+```
+
+Lack of Fit F Test
+
+Assess how much of the error in prediction is due to lack of model fit. The residual sum of squares resulting from a regression can be decomposed into 2 components:
+
+-   Due to lack of fit
+-   Due to random variation
+
+If most of the error is due to lack of fit and not just random error, the model should be discarded and a new model must be built. The lack of fit F test works only with simple linear regression. Moreover, it is important that the data contains repeat observations i.e. replicates for at least one of the values of the predictor x. This test generally only applies to datasets with plenty of replicates.
+
+```{r}
+model <- lm(mpg ~ disp, data = mtcars)
+ols_pure_error_anova(model)
+```
+
+Diagnostics Panel
+
+Panel of plots for regression diagnostics
+
+```{r}
+model <- lm(mpg ~ disp + hp + wt + qsec, data = mtcars)
+ols_plot_diagnostics(model)
+```
+
+#### Variable Contributions
+
+Residual vs Regressor Plots
+
+Graph to determine whether we should add a new predictor to the model already containing other predictors. The residuals from the model is regressed on the new predictor and if the plot shows non random pattern, you should consider adding the new predictor to the model.
+
+```{r}
+model <- lm(mpg ~ disp + hp + wt, data = mtcars)
+ols_plot_resid_regressor(model, 'drat')
+```
+
+Added Variable Plot
+
+Added variable plot provides information about the marginal importance of a predictor variable Xk, given the other predictor variables already in the model. It shows the marginal importance of the variable in reducing the residual variability.
+
+It enables us to visualize the regression coefficient of a new variable being considered to be included in a model. The plot can be constructed for each predictor variable.
+
+Steps to construct an added variable plot:
+
+-   Regress Y on all variables other than X and store the residuals (Y residuals).
+-   Regress X on all the other variables included in the model (X residuals).
+-   Construct a scatter plot of Y residuals and X residuals.
+
+A strong linear relationship in the added variable plot indicates the increased importance of the contribution of X to the model already containing the other predictors.
+
+```{r}
+model <- lm(mpg ~ disp + hp + wt + qsec, data = mtcars)
+ols_plot_added_variable(model)
+```
+
+Residual Plus Component Plot
+
+The residual plus component plot was introduced by Ezekeil (1924). It was called as Partial Residual Plot by Larsen and McCleary (1972). Hadi and Chatterjee (2012) called it the residual plus component plot.
+
+Steps to construct the plot:
+
+-   Regress **Y** on all variables including **X** and store the residuals (**e**).
+-   Multiply **e** with regression coefficient of **X** (**eX**).
+-   Construct scatter plot of **eX** and **X**
+
+The residual plus component plot indicates whether any non-linearity is present in the relationship between **Y** and **X** and can suggest possible transformations for linearizing the data.
+
+```{r}
+model <- lm(mpg ~ disp + hp + wt + qsec, data = mtcars)
+ols_plot_comp_plus_resid(model)
+```
+
+## 2. The *blorr* Package
+
+a\) A Short Introduction to the blorr Package
+
+### Data
+
+Data Set Information:
+
+The data is related with direct marketing campaigns of a Portuguese banking institution. The marketing campaigns were based on phone calls. Often, more than one contact to the same client was required, in order to access if the product (bank term deposit) would be ('yes') or not ('no') subscribed.
+
+There are four datasets: 1) bank-additional-full.csv with all examples (41188) and 20 inputs, ordered by date (from May 2008 to November 2010), very close to the data analyzed in [Moro et al., 2014] 2) bank-additional.csv with 10% of the examples (4119), randomly selected from 1), and 20 inputs. 3) bank-full.csv with all examples and 17 inputs, ordered by date (older version of this dataset with less inputs). 4) bank.csv with 10% of the examples and 17 inputs, randomly selected from 3 (older version of this dataset with less inputs). The smallest datasets are provided to test more computationally demanding machine learning algorithms (e.g., SVM).
+
+The classification goal is to predict if the client will subscribe (yes/no) a term deposit (variable y).
+
+Attribute Information:
+
+Input variables: Bank client data: 1 - age (numeric) 2 - job : type of job (categorical: 'admin.','blue-collar','entrepreneur','housemaid','management','retired','self-employed','services','student','technician','unemployed','unknown') 3 - marital : marital status (categorical: 'divorced','married','single','unknown'; note: 'divorced' means divorced or widowed) 4 - education (categorical: 'basic.4y','basic.6y','basic.9y','high.school','illiterate','professional.course','university.degree','unknown') 5 - default: has credit in default? (categorical: 'no','yes','unknown') 6 - housing: has housing loan? (categorical: 'no','yes','unknown') 7 - loan: has personal loan? (categorical: 'no','yes','unknown')
+
+Related with the last contact of the current campaign:
+
+8 - contact: contact communication type (categorical: 'cellular','telephone') 9 - month: last contact month of year (categorical: 'jan', 'feb', 'mar', ..., 'nov', 'dec') 10 - day_of_week: last contact day of the week (categorical: 'mon','tue','wed','thu','fri') 11 - duration: last contact duration, in seconds (numeric). Important note: this attribute highly affects the output target (e.g., if duration=0 then y='no'). Yet, the duration is not known before a call is performed. Also, after the end of the call y is obviously known. Thus, this input should only be included for benchmark purposes and should be discarded if the intention is to have a realistic predictive model.
+
+Other attributes:
+
+12 - campaign: number of contacts performed during this campaign and for this client (numeric, includes last contact) 13 - pdays: number of days that passed by after the client was last contacted from a previous campaign (numeric; 999 means client was not previously contacted) 14 - previous: number of contacts performed before this campaign and for this client (numeric) 15 - poutcome: outcome of the previous marketing campaign (categorical: 'failure','nonexistent','success')
+
+Social and economic context attributes
+
+16 - emp.var.rate: employment variation rate - quarterly indicator (numeric) 17 - cons.price.idx: consumer price index - monthly indicator (numeric) 18 - cons.conf.idx: consumer confidence index - monthly indicator (numeric) 19 - euribor3m: euribor 3 month rate - daily indicator (numeric) 20 - nr.employed: number of employees - quarterly indicator (numeric)
+
+Output variable (desired target): 21 - y - has the client subscribed a term deposit? (binary: 'yes','no')
+
+To demonstrate the features of blorr, we will use the bank marketing data set. The data is related with direct marketing campaigns of a Portuguese banking institution. The marketing campaigns were based on phone calls. Often, more than one contact to the same client was required, in order to access if the product (bank term deposit) would be ('yes') or not ('no') subscribed. It contains a random sample (\~4k) of the original data set which can be found at <https://archive.ics.uci.edu/ml/datasets/bank+marketing>
+
+In order to execute, all character variables were transformed to Factor. Also the response variable was transformed to 1 for yes and 0 for now.
+
+#### Bibliography source:
+
+[Moro et al., 2014] S. Moro, P. Cortez and P. Rita. A Data-Driven Approach to Predict the Success of Bank Telemarketing. Decision Support Systems, Elsevier, 62:22-31, June 2014
+
+```{r message=FALSE}
+
+library(blorr)
+library(magrittr)
+library(readr)
+
+bank_marketing <- read_delim("bank.csv", delim = ";", 
+    escape_double = FALSE, trim_ws = TRUE)
+
+bank_marketing[sapply(bank_marketing, is.character)] <- lapply(bank_marketing[sapply(bank_marketing, is.character)], 
+                                                           as.factor)
+bank_marketing<-as.data.frame(bank_marketing)
+
+bank_marketing$y<-as.factor(ifelse(bank_marketing$y=="yes",1,0))
+```
+
+#### Bivariate Analysis
+
+Let us begin with careful bivariate analysis of each possible variable and the outcome variable. We will use information value and likelihood ratio chi square test for selecting the initial set of predictors for our model. The bivariate analysis is currently available for categorical predictors only.
+
+```{r}
+
+
+blr_bivariate_analysis(bank_marketing, y, job, marital, education, default, 
+  housing, loan, contact, poutcome)
+
+
+```
+
+### Weight of Evidence & Information Value
+
+Weight of evidence (WoE) is used to assess the relative risk of different attributes for a characteristic and as a means to transform characteristics into variables. It is also a very useful tool for binning. The WoE for any group with average odds is zero. A negative WoE indicates that the proportion of defaults is higher for that attribute than the overall proportion and indicates higher risk.
+
+The information value is used to rank order variables in terms of their predictive power. A high information value indicates a high ability to discriminate. Values for the information value will always be positive and may be above 3 when assessing highly predictive characteristics. Characteristics with information values less than 0:10 are typically viewed as weak, while values over 0.30 are sought after.
+
+```{r}
+blr_woe_iv(bank_marketing, job, y)
+
+```
+
+### Plot
+
+```{r}
+
+k <- blr_woe_iv(bank_marketing, job, y)
+plot(k)
+
+```
+
+### Multiple Variables
+
+We can generate the weight of evidence and information value for multiple variables using blr_woe_iv_stats().
+
+```{r}
+
+blr_woe_iv_stats(bank_marketing, y, job, marital, education)
+
+
+```
+
+### Stepwise Selection
+
+For the initial/ first cut model, all the independent variables are put into the model. Our goal is to include a limited number of independent variables (5-15) which are all significant, without sacrificing too much on the model performance. The rationale behind not-including too many variables is that the model would be over fitted and would become unstable when tested on the validation sample. The variable reduction is done using forward or backward or stepwise variable selection procedures. We will use blr_step_aic_both() to shortlist predictors for our model.
+
+### Model
+
+```{r}
+
+model <- glm(y ~ ., data = bank_marketing, family = binomial(link = 'logit'))
+
+```
+
+### Selection Summary
+
+```{r}
+blr_step_aic_both(model)
+
+```
+
+As we can notice in the Stepwise Summary, as we start to add more variables, the AIC ad the deviance starts to improve. As we also can see on the following graphs.
+
+#### Plot
+
+```{r}
+model %>%
+  blr_step_aic_both() %>%
+  plot()
+```
+
+### Regression Output
+
+#### Model
+
+We can use bivariate analysis and stepwise selection procedure to shortlist predictors and build the model using the glm(). The predictors used in the below model are for illustration purposes and not necessarily shortlisted from the bivariate analysis and variable selection procedures.
+
+```{r}
+
+model <- glm(y ~  age + duration + previous + housing + default +
+             loan + poutcome + job + marital, data = bank_marketing, 
+             family = binomial(link = 'logit'))
+
+```
+
+Using model
+
+Let us look at the output generated from blr_regress():
+
+```{r}
+blr_regress(model)
+
+```
+
+If you want to examine the odds ratio estimates, set odd_conf_limit to TRUE. The odds ratio estimates are not explicitly computed as we observed considerable increase in computation time when dealing with large data sets.
+
+#### Using Formula
+
+Let us use the model formula and the data set to generate the above results.
+
+```{r}
+blr_regress(y ~  age + duration + previous + housing + default +
+             loan + poutcome + job + marital, data = bank_marketing)
+
+```
+
+#### Model Fit Statistics
+
+Model fit statistics are available to assess how well the model fits the data and to compare two different models.The output includes likelihood ratio test, AIC, BIC and a host of pseudo r-squared measures.
+
+#### Single Model
+
+```{r}
+
+blr_model_fit_stats(model)
+
+```
+
+### Model Validation
+
+#### Confusion Matrix
+
+In the event of deciding a cut-off point on the probability scores of a logistic regression model, a confusion matrix is created corresponding to a particular cut-off. The observations with probability scores above the cut-off score are predicted to be events and those below the cut-off score, as non-events. The confusion matrix, a 2X2 table, then calculates the number of correctly classified and miss-classified observations.
+
+```{r}
+blr_confusion_matrix(model, cutoff = 0.5)
+
+
+```
+
+The validity of a cut-off is measured using sensitivity, specificity and accuracy.
+
+Sensitivity: The % of correctly classified events out of all events = TP / (TP + FN)
+
+Specificity: The % of correctly classified non-events out of all non-events = TN / (TN + FP)
+
+Accuracy: The % of correctly classified observation over all observations = (TP + TN) / (TP + FP + TN + FN)
+
+True Positive (TP) : Events correctly classified as events.
+
+True Negative (TN) : Non-Events correctly classified as non-events.
+
+False Positive (FP): Non-events miss-classified as events.
+
+False Negative (FN): Events miss-classified as non-events.
+
+For a standard logistic model, the higher is the cut-off, the lower will be the sensitivity and the higher would be the specificity. As the cut-off is decreased, sensitivity will go up, as then more events would be captured. Also, specificity will go down, as more non-events would miss-classified as events. Hence a trade-off is done based on the requirements. For example, if we are looking to capture as many events as possible, and we can afford to have miss-classified non-events, then a low cut-off is taken.
+
+#### Hosmer Lemeshow Test
+
+Hosmer and Lemeshow developed a goodness-of-fit test for logistic regression models with binary responses. The test involves dividing the data into approximately ten groups of roughly equal size based on the percentiles of the estimated probabilities. The observations are sorted in increasing order of their estimated probability of having an even outcome. The discrepancies between the observed and expected number of observations in these groups are summarized by the Pearson chi-square statistic, which is then compared to chi-square distribution with t degrees of freedom, where t is the number of groups minus 2. Lower values of Goodness-of-fit are preferred.
+
+```{r}
+blr_test_hosmer_lemeshow(model)
+
+
+```
+
+#### Gains Table & Lift Chart
+
+A lift curve is a graphical representation of the % of cumulative events captured at a specific cut-off. The cut-off can be a particular decile or a percentile. Similar, to rank ordering procedure, the data is in descending order of the scores and is then grouped into deciles/percentiles. The cumulative number of observations and events are then computed for each decile/percentile. The lift curve is the created using the cumulative % population as the x-axis and the cumulative percentage of events as the y-axis.
+
+```{r}
+blr_gains_table(model)
+
+```
+
+#### Lift Chart
+
+```{r}
+model %>%
+    blr_gains_table() %>%
+    plot()
+```
+
+#### ROC Curve
+
+ROC curve is a graphical representation of the validity of cut-offs for a logistic regression model. The ROC curve is plotted using the sensitivity and specificity for all possible cut-offs, i.e., all the probability scores. The graph is plotted using sensitivity on the y-axis and 1-specificity on the x-axis. Any point on the ROC curve represents a sensitivity X (1-specificity) measure corresponding to a cut-off. The area under the ROC curve is used as a validation measure for the model – the bigger the area the better is the model.
+
+```{r}
+model %>%
+    blr_gains_table() %>%
+  blr_roc_curve()
+```
+
+#### KS Chart
+
+The KS Statistic is again a measure of model efficiency, and it is created using the lift curve. The lift curve is created to plot % events. If we also plot % non-events on the same scale, with % population at x-axis, we would get another curve. The maximum distance between the lift curve for events and that for non-events is termed as KS. For a good model, KS should be big (>=0.3) and should occur as close to the event rate as possible.
+
+```{r}
+model %>%
+    blr_gains_table() %>%
+  blr_ks_chart()
+```
+
+#### Decile Lift Chart
+
+The decile lift chart displays the lift over the global mean event rate for each decile. For a model with good discriminatory power, the top deciles should have an event/conversion rate greater than the global mean.
+
+```{r}
+model %>%
+  blr_gains_table() %>%
+  blr_decile_lift_chart()
+
+```
+
+#### Capture Rate by Decile
+
+If the model has good discriminatory power, the top deciles should have a higher event/conversion rate compared to the bottom deciles.
+
+```{r}
+model %>%
+  blr_gains_table() %>%
+  blr_decile_capture_rate()
+```
+
+#### Lorenz Curve
+
+The Lorenz curve is a simple graphic device which illustrates the degree of inequality in the distribution of thevariable concerned. It is a visual representation of inequality used to measure the discriminatory power of the predictive model.
+
+```{r}
+blr_lorenz_curve(model)
+
+```
+
+#### Residual & Influence Diagnostics
+
+blorr can generate 22 plots for residual, influence and leverage diagnostics.
+
+Influence Diagnostics
+
+```{r}
+blr_plot_diag_influence(model)
+
+
+```
+
+From al the graphs above , we can focus and explain the Pearson residuals as the standardized distances between the observed and expected responses, and deviance residuals are defined as the signed square root of the individual contributions to the model deviance (i.e., the difference between the log-likelihoods of the saturated and fitted models)
+
+On both residuals plots we can confirm that the residuals are stationary on all values.
+
+#### Leverage Diagnostics
+
+```{r}
+
+blr_plot_diag_leverage(model)
+
+```
+
+#### Fitted Values Diagnostics
+
+```{r}
+
+blr_plot_diag_fit(model)
+
+
+```
+
+The delta deviance measures the change in the deviance goodness-of-fit statistic because of deleting a specific factor/covariate pattern. Delta deviance can be large because of a large residual (deviance or Pearson) and/or a large leverage. Minitab calculates a value for each distinct factor/covariate pattern.
+
+The delta chi-square is the change in Pearson chi-square because of deleting all the observations with the jth factor/covariate pattern. Minitab calculates a delta chi-square value for each distinct factor/covariate pattern. Observations that are not fit well by the model. have high delta chi-square values.
