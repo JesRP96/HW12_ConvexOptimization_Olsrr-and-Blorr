@@ -1,2 +1,2 @@
-# HW12 ConvexOptimization
+# HW12 Convex Optimization
 Using olsrr and blorr
